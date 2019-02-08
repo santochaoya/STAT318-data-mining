@@ -1,0 +1,157 @@
+======================
+2 fit regression tree
+======================
+
+(a)Fit a regression tree to the training set.
+```{r}
+library(tree)
+cartrain = read.csv("E:/文档/UC/318/Assignment/A3/carTrain.csv")
+cartest = read.csv("E:/文档/UC/318/Assignment/A3/carTest.csv")
+tree.carseats = tree(Sales~., cartrain)
+summary(tree.carseats)
+```
+
+plot the tree
+```{r}
+plot(tree.carseats)
+text(tree.carseats, pretty = 0)
+```
+MSE of test and training data
+```{r}
+pred.train = predict(tree.carseats, cartrain)
+plot(pred.train, cartrain$Sales)
+abline(0, 1)
+mean((pred.train - cartrain$Sales)^2)
+
+pred.test = predict(tree.carseats, cartest)
+plot(pred.test, cartest$Sales)
+abline(0, 1)
+mean((pred.test - cartest$Sales)^2)
+```
+(b) Pruning
+Find the best depth of tree
+```{r}
+cv.carseats = cv.tree(tree.carseats)
+plot(cv.carseats$size, cv.carseats$dev, type = "b")
+```
+Pruning with the best depth
+```{r}
+tree.carseats.prune = prune.tree(tree.carseats, best = 9)
+plot(tree.carseats.prune)
+text(tree.carseats.prune, pretty = 0, cex = 0.9)
+pred.test.prune = predict(tree.carseats.prune, cartest)
+mean((pred.test.prune - cartest$Sales) ^ 2)
+```
+(c) Fit a bagged regression tree and a random forest
+fit a bagged regression tree(Using random forest with the number of all the predict variables : 9)
+```{r}
+library(randomForest)
+bag.carseats = randomForest(Sales~., cartrain, mtry = 9, importance = TRUE)
+bag.carseats
+```
+test and training MSE for bagged
+```{r}
+pred.train.bag = predict(bag.carseats, cartrain)
+mean((pred.train.bag - cartrain$Sales)^2)
+pred.test.bag = predict(bag.carseats, cartest)
+mean((pred.test.bag - cartest$Sales)^2)
+```
+fit a random forest with p/3 = 3 variables
+```{r}
+rf.carseats = randomForest(Sales~., cartrain, mtry = 3, importance = TRUE)
+rf.carseats
+```
+test and traning MSEs for random forest
+```{r}
+pred.train.rf = predict(rf.carseats, cartrain)
+mean((pred.train.rf - cartrain$Sales)^2)
+pred.test.rf = predict(rf.carseats, cartest)
+mean((pred.test.rf - cartest$Sales)^2)
+```
+As test MSEs is smaller in bagged regreesion tree which means bagged performed better than random forest in this problem. So decorrelating trees did not have an effictive strategy for this problem.
+
+(d)Fit a boosted regression tree with training data and calculate the test and traning MSEs
+fit a boosted regression tree with different depth, number of trees and shrinkages to find the best one(with smallest test MSE)
+```{r}
+library(gbm)
+mse.boost = c()
+min_mse = 50
+for (n in c(1000, 2500, 5000)){
+     for (d in seq(1:5)){
+         for (s in c(0.1, 0.01, 0.001)){
+             boost.carseats = gbm(Sales~., cartrain, distribution = "gaussian", n.trees = n, interaction.depth = d, shrinkage = s, verbose = F)
+             pred.test.boost = predict(boost.carseats, cartest, n.trees = n)
+             mse = mean((pred.test.boost - cartest$Sales)^2)
+             mse.boost = c(mse.boost, mse)
+             if (mse < min_mse){
+                min_mse = mse
+                min_par = c(s, d, n)
+             }
+         }
+     }
+}
+options(scipen = 2)
+min_mse
+min_par
+```
+calculate the test and training MSEs with depth = 1, number of tree = 1000, shrinkage = 0.01
+```{r}
+boost.carseats.best = gbm(Sales~., cartrain, distribution = "gaussian", n.tree = 1000, interaction.depth = 1, shrinkage = 0.01, verbose = F)
+pred.train.boost.best = predict(boost.carseats.best, cartrain, n.trees = 1000)
+mean((pred.train.boost.best - cartrain$Sales)^2)
+pred.test.boost.best = predict(boost.carseats.best, cartest, n.trees = 1000)
+mean((pred.test.boost.best - cartest$Sales)^2)
+```
+(e)the most important predictors in this problem
+With the smallest test MSE, boost regression tree model performed the best.
+Find the most important predictors in boost regression tree model
+```{r}
+summary(boost.carseats.best)
+```
+3 
+(a)k-means with k = 5 plot with different colours and show the total within-cluster sum of squares
+```{r}
+data1 = read.csv("E:/文档/UC/318/Assignment/A3/A3data1.csv")
+km1.out = kmeans(data1[1:2], 5, nstart = 50)
+plot(data1[1:2], col = (km1.out$cluster + 1), main = "K-Means Clustering Result with K = 5", pch = 20, cex = 1)
+km1.out$tot.withinss
+```
+(b)hierarchical clustering with k = 5 plot with different colours with complete linkage
+```{r}
+hc1.complete = hclust(dist(data1[1:2]), method = "complete")
+cluster1.complete = cutree(hc1.complete, 5)
+plot(data1[1:2], col = (cluster1.complete + 1), main = "Hierachical Clustering of Complete Linkage Result with K = 5", pch = 20)
+```
+(b)hierarchical clustering with k = 5 plot with different colours with single linkage
+```{r}
+hc1.single = hclust(dist(data1[1:2]), method = "single")
+cluster1.single = cutree(hc1.single, 5)
+plot(data1[1:2], col = (cluster1.single + 1), main = "Hierachical Clustering of Complete Linkage Result with K = 5", pch = 20)
+```
+(C)compare the clustering methods of complete and single with the actual cluster 
+```{r}
+mean(km1.out$cluster == data1$Cluster)
+mean(cluster1.complete == data1$Cluster)
+mean(cluster1.single == data1$Cluster)
+```
+3. Repeat (a) - (c) with K = 3
+```{r}
+data2 = read.csv("E:/文档/UC/318/Assignment/A3/A3data2.csv")
+km2.out = kmeans(data2[1:2], 3, nstart = 50)
+plot(data2[1:2], col = (km2.out$cluster + 1), main = "K-Means Clustering Result with K = 3", pch = 20, cex = 1)
+```
+```{r}
+hc2.complete = hclust(dist(data2[1:2]), method = "complete")
+cluster2.complete = cutree(hc2.complete, 3)
+plot(data2[1:2], col = (cluster2.complete + 1), main = "Hierachical Clustering of Complete Linkage Result with K = 3", pch = 20)
+```
+```{r}
+hc2.single = hclust(dist(data2[1:2]), method = "single")
+cluster2.single = cutree(hc2.single, 3)
+plot(data2[1:2], col = (cluster2.single + 1), main = "Hierachical Clustering of Complete Linkage Result with K = 5", pch = 20)
+```
+```{r}
+mean(km2.out$cluster == data2$Cluster)
+mean(cluster2.complete == data2$Cluster)
+mean(cluster2.single == data2$Cluster)
+```
